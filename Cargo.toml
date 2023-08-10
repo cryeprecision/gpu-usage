@@ -5,3 +5,6 @@ members = [
     "gpu-usage",
     "runner",
 ]
+
+[profile.release]
+strip = true
