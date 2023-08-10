@@ -21,7 +21,7 @@ pub async fn cpu_temp_version() -> Result<String> {
         .context("couldn't wait for child process to finish")?;
 
     match std::str::from_utf8(&output.stdout) {
-        Ok(stdout) => Ok(stdout.to_string()),
+        Ok(stdout) => Ok(stdout.trim().to_string()),
         Err(_) => bail!("child stdout is invalid utf8"),
     }
 }
