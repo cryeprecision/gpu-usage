@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 structopt = { version = "0.3" }
-tokio = { version = "1.30", features = ["rt", "macros", "fs", "process"] }
+tokio = { version = "1.30", features = ["rt", "macros", "time"] }
 chrono = { version = "0.4" }
 simplelog = { version = "0.12" }
 log = { version = "0.4" }
