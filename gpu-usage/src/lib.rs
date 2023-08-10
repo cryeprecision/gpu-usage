@@ -30,6 +30,9 @@ pub async fn gpu_usage(device: &str) -> Result<Value> {
     // buffer to assemble child stdout until it's a complete json object
     let mut json_buf = Vec::<u8>::with_capacity(BUFFER_LEN);
 
+    // this process doesn't exit so we have to scan its output until we find
+    // the first complete json object and return that
+
     let json_val = loop {
         // check if the child exited prematurely and if it did, print its stderr output
         if let Some(status) = child.try_wait().context("couldn't check child status")? {
