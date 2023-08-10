@@ -13,6 +13,8 @@ pub fn init_logger() {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    init_logger();
+
     let mut ticker = tokio::time::interval(tokio::time::Duration::from_millis(1000));
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
