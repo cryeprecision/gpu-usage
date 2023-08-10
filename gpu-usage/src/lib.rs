@@ -29,20 +29,17 @@ pub async fn gpu_usage(device: &str) -> Result<Value> {
     let mut read_buf = vec![0u8; BUFFER_LEN];
     // buffer to assemble child stdout until it's a complete json object
     let mut json_buf = Vec::<u8>::with_capacity(BUFFER_LEN);
-    // buffer to read stderr into
-    let mut err_buf = Vec::<u8>::with_capacity(BUFFER_LEN);
 
     let json_val = loop {
-        let stderr_bytes_read = stderr
-            .read(&mut read_buf)
-            .await
-            .context("couldn't read child stderr")?;
-        err_buf.extend_from_slice(&read_buf[0..stderr_bytes_read]);
-
         // check if the child exited prematurely and if it did, print its stderr output
         if let Some(status) = child.try_wait().context("couldn't check child status")? {
-            let err = std::str::from_utf8(&err_buf).unwrap_or("invalid uft8");
-            log::error!("child-stderr: {}", err);
+            let mut stderr_str = String::with_capacity(BUFFER_LEN);
+            stderr
+                .read_to_string(&mut stderr_str)
+                .await
+                .context("couldn't read stderr of exited child")?;
+
+            log::error!("child-stderr: {}", stderr_str);
             bail!("child exited prematurely with {}", status)
         }
 
