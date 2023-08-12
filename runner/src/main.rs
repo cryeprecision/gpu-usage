@@ -2,6 +2,7 @@ mod config;
 mod json_ptr;
 
 use anyhow::Context;
+use config::{CpuTempConf, GpuUsageConf};
 
 use crate::config::Conf;
 
@@ -21,6 +22,37 @@ pub fn init_logger() {
         ColorChoice::Auto,
     )
     .unwrap();
+}
+
+pub async fn run_cpu(cfg: &CpuTempConf) {
+    let temp = cpu_temp::cpu_temp()
+        .await
+        .context("couldn't fetch cpu temp")
+        .unwrap();
+    log::info!("cpu temp: {:#?}", temp);
+
+    cfg.values.iter().for_each(|mapping| {
+        log::info!(
+            "[temp] {}: {}",
+            mapping.name,
+            mapping.path.get_f64(&temp).unwrap(),
+        );
+    });
+}
+pub async fn run_gpu(cfg: &GpuUsageConf) {
+    let usage = gpu_usage::gpu_usage(&cfg.device)
+        .await
+        .context("couldn't fetch gpu usage")
+        .unwrap();
+    log::info!("gpu usage: {:#?}", usage);
+
+    cfg.values.iter().for_each(|mapping| {
+        log::info!(
+            "[gpu] {}: {}",
+            mapping.name,
+            mapping.path.get_f64(&usage).unwrap()
+        )
+    })
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -52,43 +84,11 @@ async fn main() {
     loop {
         ticker.tick().await;
 
-        if let Some(cfg) = cfg.cpu_temp.as_ref() {
-            if !cfg.enabled {
-                break;
-            }
-
-            let temp = cpu_temp::cpu_temp()
-                .await
-                .context("couldn't fetch cpu temp")
-                .unwrap();
-            log::info!("cpu temp: {:#?}", temp);
-
-            cfg.values.iter().for_each(|mapping| {
-                log::info!(
-                    "[temp] {}: {}",
-                    mapping.name,
-                    mapping.path.get_f64(&temp).unwrap(),
-                );
-            });
+        if cfg.cpu_temp.as_ref().map_or(false, |c| c.enabled) {
+            run_cpu(cfg.cpu_temp.as_ref().unwrap()).await;
         }
-        if let Some(cfg) = cfg.gpu_usage.as_ref() {
-            if !cfg.enabled {
-                break;
-            }
-
-            let usage = gpu_usage::gpu_usage(&cfg.device)
-                .await
-                .context("couldn't fetch gpu usage")
-                .unwrap();
-            log::info!("gpu usage: {:#?}", usage);
-
-            cfg.values.iter().for_each(|mapping| {
-                log::info!(
-                    "[gpu] {}: {}",
-                    mapping.name,
-                    mapping.path.get_f64(&usage).unwrap()
-                )
-            })
+        if cfg.gpu_usage.as_ref().map_or(false, |c| c.enabled) {
+            run_gpu(cfg.gpu_usage.as_ref().unwrap()).await;
         }
     }
 }
