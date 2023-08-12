@@ -68,13 +68,13 @@ mod tests {
         struct Struct {
             name: String,
             #[serde(deserialize_with = "JsonPtr::deserialize")]
-            pointer: JsonPtr,
+            path: JsonPtr,
         }
 
-        let json = r#"{ "name": "hi", "pointer": ["a", "/", "~", "b"] }"#;
+        let json = r#"{ "name": "hi", "path": ["a", "/", "~", "b"] }"#;
         let result = serde_json::from_str::<Struct>(json).unwrap();
 
         assert_eq!(result.name, "hi");
-        assert_eq!(result.pointer.as_str(), "/a/~1/~0/b");
+        assert_eq!(result.path.as_str(), "/a/~1/~0/b");
     }
 }
