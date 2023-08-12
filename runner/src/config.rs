@@ -48,7 +48,7 @@ impl Conf {
                     .open(path)
                     .context("couldn't open config file for reading")?,
             );
-            Ok(serde_json::from_reader(&mut reader).context("couldn't deserialize config")?)
+            serde_json::from_reader(&mut reader).context("couldn't deserialize config")
         }
         let path = path.to_string();
         tokio::task::spawn_blocking(move || inner(&path))

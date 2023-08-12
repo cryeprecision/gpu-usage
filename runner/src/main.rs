@@ -51,7 +51,7 @@ async fn main() {
     loop {
         ticker.tick().await;
 
-        if let Some(_) = cfg.cpu_temp.as_ref() {
+        if let Some(_cfg) = cfg.cpu_temp.as_ref() {
             let temp = cpu_temp::cpu_temp()
                 .await
                 .context("couldn't fetch cpu temp")

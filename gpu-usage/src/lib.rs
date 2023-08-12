@@ -10,17 +10,17 @@ const DELAY_MS: &str = "5000";
 
 #[derive(Debug, Deserialize)]
 pub struct GpuUsage {
-    clients: Clients,
-    engines: Engines,
-    frequency: Frequency,
-    interrupts: Interrupts,
-    period: Period,
+    pub clients: Clients,
+    pub engines: Engines,
+    pub frequency: Frequency,
+    pub interrupts: Interrupts,
+    pub period: Period,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Clients {
     #[serde(flatten)]
-    inner: serde_json::Value,
+    pub inner: Value,
 }
 
 #[derive(Debug, Deserialize)]
