@@ -7,6 +7,7 @@ use crate::json_ptr::JsonPtr;
 pub struct ValueMapping {
     /// Name of the value
     pub name: String,
+
     /// Path to the value (see [`JsonPtr`])
     #[serde(deserialize_with = "JsonPtr::deserialize")]
     pub pointer: JsonPtr,
@@ -29,14 +30,21 @@ pub struct InfluxConf {
 
 #[derive(Deserialize, Default, Debug)]
 pub struct GpuUsageConf {
+    /// Enable or disable collecting GPU usage
+    pub enabled: bool,
+
     /// Device identifier (see `inte_gpu_top -h`)
     pub device: String,
+
     /// List of values to extract
     pub values: Vec<ValueMapping>,
 }
 
 #[derive(Deserialize, Default, Debug)]
 pub struct CpuTempConf {
+    /// Enable or disable collecting temperatures
+    pub enabled: bool,
+
     /// List of values to extract
     pub values: Vec<ValueMapping>,
 }
