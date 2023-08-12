@@ -82,15 +82,15 @@ async fn main() {
             }
 
             let temps = Temps {
-                nvme_composite: get_temp(&temp, "nvme-pci-0100/Composite/temp1_input"),
-                nvme_1: get_temp(&temp, "nvme-pci-0100/Sensor 1/temp2_input"),
-                nvme_2: get_temp(&temp, "nvme-pci-0100/Sensor 2/temp3_input"),
-                acpi: get_temp(&temp, "acpitz-acpi-0/temp1/temp1_input"),
-                cpu_package: get_temp(&temp, "coretemp-isa-0000/Package id 0/temp1_input"),
-                cpu_0: get_temp(&temp, "coretemp-isa-0000/Core 0/temp2_input"),
-                cpu_1: get_temp(&temp, "coretemp-isa-0000/Core 1/temp3_input"),
-                cpu_2: get_temp(&temp, "coretemp-isa-0000/Core 2/temp4_input"),
-                cpu_3: get_temp(&temp, "coretemp-isa-0000/Core 3/temp5_input"),
+                nvme_composite: get_temp(&temp, "/nvme-pci-0100/Composite/temp1_input"),
+                nvme_1: get_temp(&temp, "/nvme-pci-0100/Sensor 1/temp2_input"),
+                nvme_2: get_temp(&temp, "/nvme-pci-0100/Sensor 2/temp3_input"),
+                acpi: get_temp(&temp, "/acpitz-acpi-0/temp1/temp1_input"),
+                cpu_package: get_temp(&temp, "/coretemp-isa-0000/Package id 0/temp1_input"),
+                cpu_0: get_temp(&temp, "/coretemp-isa-0000/Core 0/temp2_input"),
+                cpu_1: get_temp(&temp, "/coretemp-isa-0000/Core 1/temp3_input"),
+                cpu_2: get_temp(&temp, "/coretemp-isa-0000/Core 2/temp4_input"),
+                cpu_3: get_temp(&temp, "/coretemp-isa-0000/Core 3/temp5_input"),
             };
 
             log::info!("cpu temps: {:#?}", temps);
