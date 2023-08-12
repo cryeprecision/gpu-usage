@@ -2,6 +2,8 @@ mod config;
 
 use anyhow::Context;
 
+use crate::config::Conf;
+
 pub fn init_logger() {
     use log::LevelFilter;
     use simplelog::{ColorChoice, ConfigBuilder, TermLogger, TerminalMode};
@@ -24,20 +26,7 @@ pub fn init_logger() {
 async fn main() {
     init_logger();
 
-    let cfg = match tokio::fs::read_to_string("./config.json").await {
-        Err(err) => {
-            log::error!("couldn't read config file ({})", err);
-            std::process::exit(1);
-        }
-        Ok(v) => v,
-    };
-    let cfg = match serde_json::from_str::<config::Conf>(&cfg) {
-        Err(err) => {
-            log::error!("couldn't parse config file ({})", err);
-            std::process::exit(1);
-        }
-        Ok(v) => v,
-    };
+    let cfg = Conf::load("./config.json").await.unwrap();
     log::info!("cfg: {:#?}", cfg);
 
     if !(cfg.cpu_temp.is_some() || cfg.gpu_usage.is_some()) {
