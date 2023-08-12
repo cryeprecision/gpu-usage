@@ -63,7 +63,7 @@ async fn main() {
                 log::info!(
                     "[temp] {}: {}",
                     mapping.name,
-                    mapping.pointer.get_f64(&temp).unwrap(),
+                    mapping.path.get_f64(&temp).unwrap(),
                 );
             });
         }
@@ -78,7 +78,7 @@ async fn main() {
                 log::info!(
                     "[gpu] {}: {}",
                     mapping.name,
-                    mapping.pointer.get_f64(&usage).unwrap()
+                    mapping.path.get_f64(&usage).unwrap()
                 )
             })
         }

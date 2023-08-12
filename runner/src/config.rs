@@ -10,7 +10,7 @@ pub struct ValueMapping {
 
     /// Path to the value (see [`JsonPtr`])
     #[serde(deserialize_with = "JsonPtr::deserialize")]
-    pub pointer: JsonPtr,
+    pub path: JsonPtr,
 }
 
 #[derive(Deserialize, Default, Debug)]
