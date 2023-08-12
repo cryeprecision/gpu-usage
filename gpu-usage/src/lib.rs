@@ -1,13 +1,65 @@
 use anyhow::{bail, Context, Result};
+use serde::Deserialize;
 use serde_json::Value;
-use std::process::Stdio;
+use std::{collections::HashMap, process::Stdio};
 use tokio::io::AsyncReadExt;
 
 const BIN: &str = "intel_gpu_top";
 const BUFFER_LEN: usize = 4096;
 const DELAY_MS: &str = "5000";
 
-pub async fn gpu_usage(device: &str) -> Result<Value> {
+#[derive(Debug, Deserialize)]
+pub struct GpuUsage {
+    clients: Clients,
+    engines: Engines,
+    frequency: Frequency,
+    interrupts: Interrupts,
+    period: Period,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Clients {
+    #[serde(flatten)]
+    inner: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EngineUsage {
+    /// Unit: `%`
+    pub busy: f64,
+    /// Unit: `%`
+    pub sema: f64,
+    /// Unit: `%`
+    pub wait: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Engines {
+    #[serde(flatten)]
+    pub inner: HashMap<String, EngineUsage>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Frequency {
+    /// Unit: `MHz`
+    pub actual: f64,
+    /// Unit: `MHz`
+    pub requested: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Interrupts {
+    /// Unit: `irq/s`
+    pub count: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Period {
+    /// Unit: `ms`
+    pub duration: f64,
+}
+
+pub async fn gpu_usage(device: &str) -> Result<GpuUsage> {
     let args: [&str; 5] = ["-s", DELAY_MS, "-J", "-d", device];
 
     let start = std::time::Instant::now();
@@ -53,7 +105,7 @@ pub async fn gpu_usage(device: &str) -> Result<Value> {
         json_buf.extend_from_slice(&read_buf[0..stdout_bytes_read]);
 
         // try to parse it as json to see if the output is complete
-        match serde_json::from_slice::<serde_json::Value>(&json_buf) {
+        match serde_json::from_slice::<GpuUsage>(&json_buf) {
             // not a complete json object yet
             Err(_) => continue,
             // full json object read, stop parsing
