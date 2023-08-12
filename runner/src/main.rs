@@ -56,14 +56,14 @@ async fn main() {
                 .await
                 .context("couldn't fetch cpu temp")
                 .unwrap();
-            log::info!("cpu temp: {:?}", temp);
+            log::info!("cpu temp: {:#?}", temp);
         }
         if let Some(cfg) = cfg.gpu_usage.as_ref() {
             let usage = gpu_usage::gpu_usage(&cfg.device)
                 .await
                 .context("couldn't fetch gpu usage")
                 .unwrap();
-            log::info!("gpu usage: {:?}", usage);
+            log::info!("gpu usage: {:#?}", usage);
         }
     }
 }
