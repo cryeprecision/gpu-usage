@@ -29,7 +29,6 @@ pub async fn run_cpu(cfg: &CpuTempConf) {
         .await
         .context("couldn't fetch cpu temp")
         .unwrap();
-    log::info!("cpu temp: {:#?}", temp);
 
     cfg.values.iter().for_each(|mapping| {
         log::info!(
@@ -44,7 +43,6 @@ pub async fn run_gpu(cfg: &GpuUsageConf) {
         .await
         .context("couldn't fetch gpu usage")
         .unwrap();
-    log::info!("gpu usage: {:#?}", usage);
 
     cfg.values.iter().for_each(|mapping| {
         log::info!(
@@ -60,17 +58,19 @@ async fn main() {
     init_logger();
 
     let cfg = Conf::load("./config.json").await.unwrap();
-    log::info!("cfg: {:#?}", cfg);
 
-    if !(cfg.cpu_temp.is_some() || cfg.gpu_usage.is_some()) {
+    if !(cfg.cpu_temp.as_ref().map_or(false, |c| c.enabled)
+        || cfg.gpu_usage.as_ref().map_or(false, |c| c.enabled))
+    {
         log::error!("nothing to collect");
         std::process::exit(1);
     }
+
     if cfg.influx.is_none() {
         log::warn!("not connecting to db");
     }
 
-    let mut ticker = tokio::time::interval(tokio::time::Duration::from_millis(2000));
+    let mut ticker = tokio::time::interval(tokio::time::Duration::from_millis(cfg.interval_ms));
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
     log::info!(
