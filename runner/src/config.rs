@@ -1,7 +1,18 @@
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+use crate::json_ptr::JsonPtr;
+
+#[derive(Deserialize, Debug, Default)]
+pub struct ValueMapping {
+    /// Name of the value
+    pub name: String,
+    /// Path to the value (see [`JsonPtr`])
+    #[serde(deserialize_with = "JsonPtr::deserialize")]
+    pub pointer: JsonPtr,
+}
+
+#[derive(Deserialize, Default, Debug)]
 pub struct InfluxConf {
     /// Host where InfluxDB is running.
     pub host: String,
@@ -16,15 +27,21 @@ pub struct InfluxConf {
     pub token: String,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Deserialize, Default, Debug)]
 pub struct GpuUsageConf {
+    /// Device identifier (see `inte_gpu_top -h`)
     pub device: String,
+    /// List of values to extract
+    pub values: Vec<ValueMapping>,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct CpuTempConf {}
+#[derive(Deserialize, Default, Debug)]
+pub struct CpuTempConf {
+    /// List of values to extract
+    pub values: Vec<ValueMapping>,
+}
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Deserialize, Default, Debug)]
 pub struct Conf {
     /// Enable collecting and submitting CPU temperature data.
     pub cpu_temp: Option<CpuTempConf>,

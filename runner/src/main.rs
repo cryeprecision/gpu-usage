@@ -1,7 +1,7 @@
 mod config;
+mod json_ptr;
 
 use anyhow::Context;
-use serde_json::Value;
 
 use crate::config::Conf;
 
@@ -52,48 +52,20 @@ async fn main() {
     loop {
         ticker.tick().await;
 
-        if let Some(_cfg) = cfg.cpu_temp.as_ref() {
+        if let Some(cfg) = cfg.cpu_temp.as_ref() {
             let temp = cpu_temp::cpu_temp()
                 .await
                 .context("couldn't fetch cpu temp")
                 .unwrap();
             log::info!("cpu temp: {:#?}", temp);
 
-            #[derive(Debug)]
-            struct Temps {
-                nvme_composite: f64,
-                nvme_1: f64,
-                nvme_2: f64,
-                acpi: f64,
-                cpu_package: f64,
-                cpu_0: f64,
-                cpu_1: f64,
-                cpu_2: f64,
-                cpu_3: f64,
-            }
-
-            fn get_temp(val: &Value, ptr: &str) -> f64 {
-                val.pointer(ptr)
-                    .with_context(|| format!("couldn't find path to value `{}`", ptr))
-                    .unwrap()
-                    .as_f64()
-                    .context("couldn't parse value as f64")
-                    .unwrap()
-            }
-
-            let temps = Temps {
-                nvme_composite: get_temp(&temp, "/nvme-pci-0100/Composite/temp1_input"),
-                nvme_1: get_temp(&temp, "/nvme-pci-0100/Sensor 1/temp2_input"),
-                nvme_2: get_temp(&temp, "/nvme-pci-0100/Sensor 2/temp3_input"),
-                acpi: get_temp(&temp, "/acpitz-acpi-0/temp1/temp1_input"),
-                cpu_package: get_temp(&temp, "/coretemp-isa-0000/Package id 0/temp1_input"),
-                cpu_0: get_temp(&temp, "/coretemp-isa-0000/Core 0/temp2_input"),
-                cpu_1: get_temp(&temp, "/coretemp-isa-0000/Core 1/temp3_input"),
-                cpu_2: get_temp(&temp, "/coretemp-isa-0000/Core 2/temp4_input"),
-                cpu_3: get_temp(&temp, "/coretemp-isa-0000/Core 3/temp5_input"),
-            };
-
-            log::info!("cpu temps: {:#?}", temps);
+            cfg.values.iter().for_each(|mapping| {
+                log::info!(
+                    "[temp] {}: {}",
+                    mapping.name,
+                    mapping.pointer.get_f64(&temp).unwrap(),
+                );
+            });
         }
         if let Some(cfg) = cfg.gpu_usage.as_ref() {
             let usage = gpu_usage::gpu_usage(&cfg.device)
@@ -101,6 +73,14 @@ async fn main() {
                 .context("couldn't fetch gpu usage")
                 .unwrap();
             log::info!("gpu usage: {:#?}", usage);
+
+            cfg.values.iter().for_each(|mapping| {
+                log::info!(
+                    "[gpu] {}: {}",
+                    mapping.name,
+                    mapping.pointer.get_f64(&usage).unwrap()
+                )
+            })
         }
     }
 }
