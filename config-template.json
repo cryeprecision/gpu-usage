@@ -1,0 +1,13 @@
+{
+    "cpu_temp": {},
+    "gpu_usage": {
+        "device": "pci:card=1"
+    },
+    "interval_ms": 2500,
+    "influx": {
+        "host": "",
+        "org": "",
+        "bucket": "",
+        "token": ""
+    }
+}
