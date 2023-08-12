@@ -53,6 +53,10 @@ async fn main() {
         ticker.tick().await;
 
         if let Some(cfg) = cfg.cpu_temp.as_ref() {
+            if !cfg.enabled {
+                break;
+            }
+
             let temp = cpu_temp::cpu_temp()
                 .await
                 .context("couldn't fetch cpu temp")
@@ -68,6 +72,10 @@ async fn main() {
             });
         }
         if let Some(cfg) = cfg.gpu_usage.as_ref() {
+            if !cfg.enabled {
+                break;
+            }
+
             let usage = gpu_usage::gpu_usage(&cfg.device)
                 .await
                 .context("couldn't fetch gpu usage")
