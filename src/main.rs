@@ -62,7 +62,7 @@ impl Avg {
 
     /// Evaluate the average
     pub fn eval(self) -> f64 {
-        self.sum / self.n as f64
+        self.sum / self.n.max(1) as f64
     }
 
     /// Add another value to the average
@@ -90,11 +90,6 @@ async fn sample_sensors(cfg: &SensorsConf, avgs: &mut [Avg]) {
     let elapsed_ms = start.elapsed().as_secs_f64() * 1e3;
     log::info!("sensors sample took: {:.1}ms", elapsed_ms);
 }
-async fn sample_sensors_n(cfg: &SensorsConf, avgs: &mut [Avg], n: usize) {
-    for _ in 0..n {
-        sample_sensors(cfg, avgs).await;
-    }
-}
 
 async fn sample_intel_gpu_top(cfg: &IntelGpuTopConf, avgs: &mut [Avg]) {
     assert_eq!(avgs.len(), cfg.values.len());
@@ -114,11 +109,6 @@ async fn sample_intel_gpu_top(cfg: &IntelGpuTopConf, avgs: &mut [Avg]) {
     let elapsed_ms = start.elapsed().as_secs_f64() * 1e3;
     log::info!("intel_gpu_top sample took: {:.1}ms", elapsed_ms);
 }
-async fn sample_intel_gpu_top_n(cfg: &IntelGpuTopConf, avgs: &mut [Avg], n: usize) {
-    for _ in 0..n {
-        sample_intel_gpu_top(cfg, avgs).await;
-    }
-}
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
@@ -133,14 +123,14 @@ async fn main() {
             log::error!("couldn't load config file: {}", err);
             std::process::exit(1);
         }
-        Ok(v) => v,
+        Ok(v) => match v.validate() {
+            Some(err) => {
+                log::error!("invalid config: {}", err);
+                std::process::exit(1);
+            }
+            None => v,
+        },
     };
-
-    // Check for invalid configuration
-    if !(cfg.sensors.enabled || cfg.intel_gpu_top.enabled) {
-        log::error!("all collectors disabled in config");
-        std::process::exit(1);
-    }
 
     // Create a connection to InfluxDB
     let influx = if let Some(cfg) = cfg.influx.as_ref() {
@@ -150,24 +140,34 @@ async fn main() {
         None
     };
 
-    // Setup the timer to sample with the correct amount of delay
-    let mut ticker = tokio::time::interval(Duration::from_millis(cfg.sample_interval_ms));
-    ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    fn sample_ticker(interval_ms: u64) -> tokio::time::Interval {
+        // Setup the timer to sample with the correct amount of delay
+        let mut ticker = tokio::time::interval(Duration::from_millis(interval_ms));
+        ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        ticker
+    }
+
+    // Tickers are outside the loop so the delay stays constant throuout iterations.
+    let mut sensors_ticker = sample_ticker(cfg.sample_interval_ms);
+    let mut intel_gpu_top_ticker = sample_ticker(cfg.sample_interval_ms);
 
     loop {
-        ticker.tick().await;
-
         // Boxed future that returns a data point over sampled values
         type BoxFuture = Pin<Box<dyn Future<Output = DataPoint>>>;
-        // List of futures that are actually needed, if the
+        // List of futures that are actually needed.
+        // If something is disabled, we won't generate a future for it.
         let mut futures = Vec::<BoxFuture>::with_capacity(BIN_COUNT);
 
         if cfg.sensors.enabled {
             futures.push(Box::pin(async {
+                let sample_count = cfg.sample_count;
                 let cfg = &cfg.sensors;
 
                 let mut avgs = vec![Avg::new(); cfg.values.len()];
-                sample_sensors_n(cfg, &mut avgs, cfg.values.len()).await;
+                for _ in 0..sample_count {
+                    sensors_ticker.tick().await;
+                    sample_sensors(cfg, &mut avgs).await;
+                }
 
                 let mut point = DataPoint::builder("sensors");
                 for tag in cfg.tags.iter() {
@@ -185,10 +185,14 @@ async fn main() {
 
         if cfg.intel_gpu_top.enabled {
             futures.push(Box::pin(async {
+                let sample_count = cfg.sample_count;
                 let cfg = &cfg.intel_gpu_top;
 
                 let mut avgs = vec![Avg::new(); cfg.values.len()];
-                sample_intel_gpu_top_n(cfg, &mut avgs, cfg.values.len()).await;
+                for _ in 0..sample_count {
+                    intel_gpu_top_ticker.tick().await;
+                    sample_intel_gpu_top(cfg, &mut avgs).await;
+                }
 
                 let mut point = DataPoint::builder("intel_gpu_top");
                 for tag in cfg.tags.iter() {

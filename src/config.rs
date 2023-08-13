@@ -83,6 +83,7 @@ pub struct Conf {
 }
 
 impl Conf {
+    /// Load the config from the specified path.
     pub async fn load(path: &str) -> Result<Conf> {
         pub fn inner(path: &str) -> Result<Conf> {
             let mut reader = std::io::BufReader::new(
@@ -97,5 +98,20 @@ impl Conf {
         tokio::task::spawn_blocking(move || inner(&path))
             .await
             .unwrap()
+    }
+
+    /// Check for invalid configuration.
+    ///
+    /// Returns a error message if the config is invalid.
+    pub fn validate(&self) -> Option<&'static str> {
+        if !(self.sensors.enabled || self.intel_gpu_top.enabled) {
+            Some("all collectors disabled")
+        } else if self.sample_count == 0 {
+            Some("sample count is zero")
+        } else if self.sample_interval_ms == 0 {
+            Some("sample interval is zero")
+        } else {
+            None
+        }
     }
 }
