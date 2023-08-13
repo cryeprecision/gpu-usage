@@ -7,10 +7,9 @@ const BIN: &str = "intel_gpu_top";
 const BUFFER_LEN: usize = 4096;
 const DELAY_MS: &str = "5000";
 
-pub async fn gpu_usage(device: &str) -> Result<Value> {
+/// Run the `intel_gpu_top` command and capture the first JSON object
+pub async fn intel_gpu_top(device: &str) -> Result<Value> {
     let args: [&str; 5] = ["-s", DELAY_MS, "-J", "-d", device];
-
-    let start = std::time::Instant::now();
 
     let mut child = tokio::process::Command::new(BIN)
         .args(args)
@@ -42,7 +41,7 @@ pub async fn gpu_usage(device: &str) -> Result<Value> {
                 .await
                 .context("couldn't read stderr of exited child")?;
 
-            log::error!("child-stderr: {}", stderr_str);
+            log::error!("child stderr: {}", stderr_str);
             bail!("child exited prematurely with {}", status)
         }
 
@@ -60,9 +59,6 @@ pub async fn gpu_usage(device: &str) -> Result<Value> {
             Ok(val) => break val,
         }
     };
-
-    let elapsed_ms = start.elapsed().as_secs_f64() * 1e3;
-    log::info!("elapsed: {:.1}ms", elapsed_ms);
 
     Ok(json_val)
 }

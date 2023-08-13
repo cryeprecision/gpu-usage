@@ -1,13 +1,21 @@
 {
-    "cpu_temp": {},
-    "gpu_usage": {
-        "device": "pci:card=1"
-    },
-    "interval_ms": 2500,
+    "sample_interval_ms": 1000,
+    "sample_count": 5,
     "influx": {
         "host": "",
         "org": "",
         "bucket": "",
         "token": ""
+    },
+    "sensors": {
+        "enabled": false,
+        "tags": [],
+        "values": []
+    },
+    "intel_gpu_top": {
+        "enabled": false,
+        "device": "",
+        "tags": [],
+        "values": []
     }
 }

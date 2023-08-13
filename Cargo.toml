@@ -1,10 +1,21 @@
-[workspace]
-resolver = "2"
-members = [
-    "cpu-temp",
-    "gpu-usage",
-    "runner",
-]
+[package]
+name = "influx-logger"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+structopt = { version = "0.3" }
+tokio = { version = "1.30", features = ["rt", "macros", "time", "process"] }
+chrono = { version = "0.4" }
+simplelog = { version = "0.12" }
+log = { version = "0.4", features = ["release_max_level_warn"] }
+futures = { version = "0.3", default-features = false, features = ["std"] }
+anyhow = { version = "1.0" }
+serde_json = { version = "1.0" }
+influxdb2 = { version = "0.4", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
 
 [profile.release]
 strip = true

@@ -13,6 +13,15 @@ pub struct ValueMapping {
     pub path: JsonPtr,
 }
 
+#[derive(Deserialize, Debug, Default)]
+pub struct Tag {
+    /// Tag name
+    pub name: String,
+
+    /// Tag value
+    pub value: String,
+}
+
 #[derive(Deserialize, Default, Debug)]
 pub struct InfluxConf {
     /// Host where InfluxDB is running.
@@ -29,9 +38,12 @@ pub struct InfluxConf {
 }
 
 #[derive(Deserialize, Default, Debug)]
-pub struct GpuUsageConf {
+pub struct IntelGpuTopConf {
     /// Enable or disable collecting GPU usage
     pub enabled: bool,
+
+    /// Tags to use when writing to Influx
+    pub tags: Vec<Tag>,
 
     /// Device identifier (see `inte_gpu_top -h`)
     pub device: String,
@@ -41,9 +53,12 @@ pub struct GpuUsageConf {
 }
 
 #[derive(Deserialize, Default, Debug)]
-pub struct CpuTempConf {
+pub struct SensorsConf {
     /// Enable or disable collecting temperatures
     pub enabled: bool,
+
+    /// Tags to use when writing to Influx
+    pub tags: Vec<Tag>,
 
     /// List of values to extract
     pub values: Vec<ValueMapping>,
@@ -51,17 +66,20 @@ pub struct CpuTempConf {
 
 #[derive(Deserialize, Default, Debug)]
 pub struct Conf {
-    /// Enable collecting and submitting CPU temperature data.
-    pub cpu_temp: Option<CpuTempConf>,
+    /// Delay between each sample.
+    pub sample_interval_ms: u64,
 
-    /// Enable collecting and submitting GPU usage data.
-    pub gpu_usage: Option<GpuUsageConf>,
-
-    /// Delay between each run.
-    pub interval_ms: u64,
+    /// Number of samples to average over before sending to Influx.
+    pub sample_count: u64,
 
     /// Connection to InfluxDB
     pub influx: Option<InfluxConf>,
+
+    /// Enable collecting and submitting CPU temperature data.
+    pub sensors: SensorsConf,
+
+    /// Enable collecting and submitting GPU usage data.
+    pub intel_gpu_top: IntelGpuTopConf,
 }
 
 impl Conf {
