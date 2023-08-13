@@ -143,7 +143,8 @@ async fn main() {
     fn sample_ticker(interval_ms: u64) -> tokio::time::Interval {
         // Setup the timer to sample with the correct amount of delay
         let mut ticker = tokio::time::interval(Duration::from_millis(interval_ms));
-        ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        // https://docs.rs/tokio/latest/tokio/time/enum.MissedTickBehavior.html
+        ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
         ticker
     }
 
