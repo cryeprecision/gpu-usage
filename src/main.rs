@@ -159,7 +159,7 @@ async fn main() {
     let intel_gpu_top = cfg.intel_gpu_top.enabled.then(|| {
         let (tx, rx) = async_channel::unbounded();
         let device = cfg.intel_gpu_top.device.clone();
-        let future = bins::intel_gpu_top_log(tx, cfg.sample_interval_ms, device);
+        let future = bins::intel_gpu_top(tx, cfg.sample_interval_ms, device);
         BackgroundJob::spawn(future, rx)
     });
     let sensors = cfg.sensors.enabled.then(|| {

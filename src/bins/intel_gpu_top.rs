@@ -8,8 +8,8 @@ use tokio::io::AsyncReadExt;
 const BIN: &str = "intel_gpu_top";
 const BUFFER_LEN: usize = 4096;
 
-pub async fn intel_gpu_top_log(tx: Sender<Value>, interval_ms: u64, device: String) -> Result<()> {
-    match intel_gpu_top(tx, interval_ms, device).await {
+pub async fn intel_gpu_top(tx: Sender<Value>, interval_ms: u64, device: String) -> Result<()> {
+    match intel_gpu_top_inner(tx, interval_ms, device).await {
         Err(err) => {
             log::error!("intel_gpu_top: {}", err);
             Err(err)
@@ -18,8 +18,18 @@ pub async fn intel_gpu_top_log(tx: Sender<Value>, interval_ms: u64, device: Stri
     }
 }
 
+fn trim_json_object(buffer: &[u8]) -> Option<&[u8]> {
+    const OPEN: u8 = '{' as u8;
+    const CLOSE: u8 = '}' as u8;
+
+    let start = buffer.iter().position(|&b| b == OPEN)?;
+    let end = buffer.len() - buffer.iter().rev().position(|&b| b == CLOSE)?;
+
+    Some(&buffer[start..end])
+}
+
 /// Spawn the `intel_gpu_top` command and collect the JSON output
-pub async fn intel_gpu_top(tx: Sender<Value>, interval_ms: u64, device: String) -> Result<()> {
+async fn intel_gpu_top_inner(tx: Sender<Value>, interval_ms: u64, device: String) -> Result<()> {
     let interval_str = interval_ms.to_string();
     let args: [&str; 5] = ["-s", &interval_str, "-J", "-d", &device];
 
@@ -75,8 +85,13 @@ pub async fn intel_gpu_top(tx: Sender<Value>, interval_ms: u64, device: String) 
             continue;
         }
 
+        // This shitty ass program only inserts a comma between JSON objects
+        // if the GPU isn't idling, so we have to trim that comma.
+        let json_buf_trimmed = trim_json_object(&json_buf)
+            .context("couldn't trim the json object read from child stdout")?;
+
         // Parse the collected output as json
-        let json = serde_json::from_slice::<Value>(&json_buf)
+        let json = serde_json::from_slice::<Value>(json_buf_trimmed)
             .context("couldn't parse child stdout as json")?;
 
         // Clear the buffer for the next object

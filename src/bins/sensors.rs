@@ -7,8 +7,18 @@ use tokio::time::MissedTickBehavior;
 
 const BIN: &str = "sensors";
 
-/// Run the `sensors` command and capture the JSON output
 pub async fn sensors(tx: Sender<Value>, interval_ms: u64) -> Result<()> {
+    match sensors_inner(tx, interval_ms).await {
+        Err(err) => {
+            log::error!("intel_gpu_top: {}", err);
+            Err(err)
+        }
+        Ok(v) => Ok(v),
+    }
+}
+
+/// Run the `sensors` command and capture the JSON output
+async fn sensors_inner(tx: Sender<Value>, interval_ms: u64) -> Result<()> {
     let args: [&str; 1] = ["-j"];
 
     let mut ticker = tokio::time::interval(Duration::from_millis(interval_ms));
