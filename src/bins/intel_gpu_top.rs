@@ -34,16 +34,16 @@ pub async fn intel_gpu_top(tx: Sender<Value>, interval_ms: u64, device: String) 
     let timeout = Duration::from_millis(interval_ms / 2);
 
     loop {
-        // check if the child exited prematurely
+        // Check if the child exited prematurely
         if let Some(status) = child.try_wait().context("couldn't check child status")? {
-            // read out the stderr buffer
+            // Read out the stderr buffer
             let mut stderr_str = String::with_capacity(BUFFER_LEN);
             stderr
                 .read_to_string(&mut stderr_str)
                 .await
                 .context("couldn't read stderr of exited child")?;
 
-            // print it as error log and return
+            // Print it as error log and return
             log::error!("child stderr: {}", stderr_str);
             return Err(anyhow!("child exited prematurely with {}", status));
         }
@@ -60,19 +60,19 @@ pub async fn intel_gpu_top(tx: Sender<Value>, interval_ms: u64, device: String) 
             }
         }
 
-        // buffer is empty, keep checking for more output
+        // Buffer is empty, keep checking for more output
         if json_buf.is_empty() {
             continue;
         }
 
-        // parse the collected output as json
+        // Parse the collected output as json
         let json = serde_json::from_slice::<Value>(&json_buf)
             .context("couldn't parse child stdout as json")?;
 
-        // clear the buffer for the next object
+        // Clear the buffer for the next object
         json_buf.clear();
 
-        // this is not allowed to block since we are in an async function
+        // Expecting unbounded queue, so this should never block
         tx.try_send(json).context("couldn't send collected value")?;
     }
 }

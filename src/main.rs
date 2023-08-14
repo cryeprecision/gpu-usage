@@ -149,7 +149,7 @@ async fn main() {
 
                 let mut avgs = vec![Avg::new(); cfg.values.len()];
 
-                // wait for enough samples from sensor output
+                // Wait for enough samples from sensor output
                 for i in 0..sample_count {
                     let val = job.rx.recv().await.unwrap();
                     log::info!("received sensors sample {}", i);
@@ -159,13 +159,13 @@ async fn main() {
                     });
                 }
 
-                // prepare a data point with measurement and tags
+                // Prepare a data point with measurement and tags
                 let mut point = DataPoint::builder("sensors");
                 for tag in cfg.tags.iter() {
                     point = point.tag(tag.name.clone(), tag.value.clone());
                 }
 
-                // insert all values into the data point
+                // Insert all values into the data point
                 let pairs = avgs.into_iter().zip(cfg.values.iter().map(|map| &map.name));
                 for (avg, name) in pairs {
                     point = point.field(name.clone(), avg.eval());
@@ -183,7 +183,7 @@ async fn main() {
 
                 let mut avgs = vec![Avg::new(); cfg.values.len()];
 
-                // wait for enough samples from intel_gpu_top output
+                // Wait for enough samples from intel_gpu_top output
                 for i in 0..sample_count {
                     let val = job.rx.recv().await.unwrap();
                     log::info!("received intel_gpu_top sample {}", i);
@@ -193,13 +193,13 @@ async fn main() {
                     });
                 }
 
-                // prepare a data point with measurement and tags
+                // Prepare a data point with measurement and tags
                 let mut point = DataPoint::builder("intel_gpu_top");
                 for tag in cfg.tags.iter() {
                     point = point.tag(tag.name.clone(), tag.value.clone());
                 }
 
-                // insert all values into the data point
+                // Insert all values into the data point
                 let pairs = avgs.into_iter().zip(cfg.values.iter().map(|map| &map.name));
                 for (avg, name) in pairs {
                     point = point.field(name.clone(), avg.eval());
@@ -210,7 +210,7 @@ async fn main() {
             }));
         }
 
-        // wait for all the jobs to collect enough samples
+        // Wait for all the jobs to collect enough samples
         let results = futures::future::join_all(futures).await;
         if let Some(influx) = influx.as_ref() {
             influx.write_points(results).await.unwrap();

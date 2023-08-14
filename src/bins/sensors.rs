@@ -40,9 +40,11 @@ pub async fn sensors(tx: Sender<Value>, interval_ms: u64) -> Result<()> {
             return Err(anyhow!("child exited with error"));
         }
 
+        // Parse the stdout as JSON
         let json = serde_json::from_slice(&output.stdout)
             .context("couldn't parse child stdout as json")?;
 
+        // Expecting unbounded queue, so this should never block
         tx.try_send(json).context("couldn't send collected value")?;
     }
 }
