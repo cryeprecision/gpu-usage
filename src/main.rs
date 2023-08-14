@@ -7,6 +7,7 @@ use std::pin::Pin;
 
 use anyhow::Result;
 use async_channel::Receiver;
+use config::{Tag, ValueMapping};
 use futures::Future;
 use influxdb2::models::DataPoint;
 use serde_json::Value;
@@ -74,19 +75,55 @@ impl Avg {
     }
 }
 
-struct BackgroundJob {
+struct BackgroundJob<T> {
     /// Handle to the future
-    pub _handle: JoinHandle<Result<()>>,
+    pub _handle: JoinHandle<Result<T>>,
 
     /// Receiver to collect the results
     pub rx: Receiver<Value>,
 }
-impl BackgroundJob {
-    pub fn new(handle: JoinHandle<Result<()>>, rx: Receiver<Value>) -> BackgroundJob {
+
+impl<T> BackgroundJob<T> {
+    // pub fn spawn<T>(future: T) -> JoinHandle<T::Output>
+    // where
+    //     T: Future + Send + 'static,
+    //     T::Output: Send + 'static,
+
+    pub fn spawn<U>(future: U, rx: Receiver<Value>) -> BackgroundJob<T>
+    where
+        T: Send + 'static,
+        U: Future<Output = T> + Send + 'static,
+    {
         BackgroundJob {
-            _handle: handle,
+            _handle: tokio::task::spawn(future),
             rx,
         }
+    }
+}
+
+/// Push `n` samples from `rx` into `avgs`
+async fn sample_n(rx: Receiver<Value>, values: &[ValueMapping], avgs: &mut [Avg], n: usize) {
+    for _ in 0..n {
+        let val = rx.recv().await.unwrap();
+        let pairs = values.iter().zip(avgs.iter_mut());
+        pairs.for_each(|(map, avg)| {
+            avg.add(map.path.get_f64(&val).unwrap());
+        });
+    }
+}
+
+/// Build a data point from the `avgs` with `tags`, `values` and `measurement`.
+fn build_point(measurement: &str, tags: &[Tag], values: &[ValueMapping], avgs: &[Avg]) {
+    // Prepare a data point with measurement and tags
+    let mut point = DataPoint::builder(measurement);
+    for tag in tags.iter() {
+        point = point.tag(tag.name.clone(), tag.value.clone());
+    }
+
+    // Insert all values into the data point
+    let pairs = avgs.iter().zip(values.iter().map(|map| &map.name));
+    for (avg, name) in pairs {
+        point = point.field(name.clone(), avg.eval());
     }
 }
 
@@ -122,17 +159,13 @@ async fn main() {
 
     let intel_gpu_top = cfg.intel_gpu_top.enabled.then(|| {
         let (tx, rx) = async_channel::unbounded();
-        let handle = tokio::spawn(bins::intel_gpu_top(
-            tx,
-            cfg.sample_interval_ms,
-            cfg.intel_gpu_top.device.clone(),
-        ));
-        BackgroundJob::new(handle, rx)
+        let device = cfg.intel_gpu_top.device.clone();
+        let future = bins::intel_gpu_top(tx, cfg.sample_interval_ms, device);
+        BackgroundJob::spawn(tokio::spawn(future), rx)
     });
     let sensors = cfg.sensors.enabled.then(|| {
         let (tx, rx) = async_channel::unbounded();
-        let handle = tokio::spawn(bins::sensors(tx, cfg.sample_interval_ms));
-        BackgroundJob::new(handle, rx)
+        BackgroundJob::spawn(bins::sensors(tx, cfg.sample_interval_ms), rx)
     });
 
     loop {
