@@ -5,13 +5,15 @@ mod json_ptr;
 
 use std::pin::Pin;
 
-use anyhow::Context;
+use anyhow::Result;
+use async_channel::Receiver;
 use futures::Future;
 use influxdb2::models::DataPoint;
+use serde_json::Value;
 use structopt::StructOpt;
-use tokio::time::{Duration, MissedTickBehavior};
+use tokio::task::JoinHandle;
 
-use crate::config::{Conf, IntelGpuTopConf, SensorsConf};
+use crate::config::Conf;
 use crate::influx::Influx;
 
 /// How many binaries are supported
@@ -72,44 +74,6 @@ impl Avg {
     }
 }
 
-async fn sample_sensors(cfg: &SensorsConf, avgs: &mut [Avg]) {
-    assert_eq!(avgs.len(), cfg.values.len());
-
-    let start = std::time::Instant::now();
-
-    let sensors = bins::sensors()
-        .await
-        .context("couldn't sample sensors")
-        .unwrap();
-
-    let pairs = cfg.values.iter().zip(avgs.iter_mut());
-    pairs.for_each(|(map, avg)| {
-        avg.add(map.path.get_f64(&sensors).unwrap());
-    });
-
-    let elapsed_ms = start.elapsed().as_secs_f64() * 1e3;
-    log::info!("sensors sample took: {:.1}ms", elapsed_ms);
-}
-
-async fn sample_intel_gpu_top(cfg: &IntelGpuTopConf, avgs: &mut [Avg]) {
-    assert_eq!(avgs.len(), cfg.values.len());
-
-    let start = std::time::Instant::now();
-
-    let intel_gpu_top = bins::intel_gpu_top(&cfg.device)
-        .await
-        .context("couldn't sample intel_gpu_top")
-        .unwrap();
-
-    let pairs = cfg.values.iter().zip(avgs.iter_mut());
-    pairs.for_each(|(map, avg)| {
-        avg.add(map.path.get_f64(&intel_gpu_top).unwrap());
-    });
-
-    let elapsed_ms = start.elapsed().as_secs_f64() * 1e3;
-    log::info!("intel_gpu_top sample took: {:.1}ms", elapsed_ms);
-}
-
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     init_logger();
@@ -140,17 +104,31 @@ async fn main() {
         None
     };
 
-    fn sample_ticker(interval_ms: u64) -> tokio::time::Interval {
-        // Setup the timer to sample with the correct amount of delay
-        let mut ticker = tokio::time::interval(Duration::from_millis(interval_ms));
-        // https://docs.rs/tokio/latest/tokio/time/enum.MissedTickBehavior.html
-        ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
-        ticker
+    struct BackgroundJob {
+        _handle: JoinHandle<Result<()>>,
+        rx: Receiver<Value>,
     }
 
-    // Tickers are outside the loop so the delay stays constant throuout iterations.
-    let mut sensors_ticker = sample_ticker(cfg.sample_interval_ms);
-    let mut intel_gpu_top_ticker = sample_ticker(cfg.sample_interval_ms);
+    let intel_gpu_top = cfg.intel_gpu_top.enabled.then(|| {
+        let (tx, rx) = async_channel::unbounded();
+        let handle = tokio::spawn(bins::intel_gpu_top(
+            tx,
+            cfg.sample_interval_ms,
+            cfg.intel_gpu_top.device.clone(),
+        ));
+        BackgroundJob {
+            _handle: handle,
+            rx,
+        }
+    });
+    let sensors = cfg.sensors.enabled.then(|| {
+        let (tx, rx) = async_channel::unbounded();
+        let handle = tokio::spawn(bins::sensors(tx, cfg.sample_interval_ms));
+        BackgroundJob {
+            _handle: handle,
+            rx,
+        }
+    });
 
     loop {
         // Boxed future that returns a data point over sampled values
@@ -159,15 +137,21 @@ async fn main() {
         // If something is disabled, we won't generate a future for it.
         let mut futures = Vec::<BoxFuture>::with_capacity(BIN_COUNT);
 
-        if cfg.sensors.enabled {
+        if let Some(job) = sensors.as_ref() {
             futures.push(Box::pin(async {
                 let sample_count = cfg.sample_count;
                 let cfg = &cfg.sensors;
 
                 let mut avgs = vec![Avg::new(); cfg.values.len()];
-                for _ in 0..sample_count {
-                    sensors_ticker.tick().await;
-                    sample_sensors(cfg, &mut avgs).await;
+
+                // wait for enough samples from sensor output
+                for i in 0..sample_count {
+                    let val = job.rx.recv().await.unwrap();
+                    log::info!("received sensors sample {}", i);
+                    let pairs = cfg.values.iter().zip(avgs.iter_mut());
+                    pairs.for_each(|(map, avg)| {
+                        avg.add(map.path.get_f64(&val).unwrap());
+                    });
                 }
 
                 let mut point = DataPoint::builder("sensors");
@@ -180,19 +164,26 @@ async fn main() {
                     point = point.field(name.clone(), avg.eval());
                 }
 
+                log::info!("built sensors point");
                 point.build().unwrap()
             }));
         }
 
-        if cfg.intel_gpu_top.enabled {
+        if let Some(job) = intel_gpu_top.as_ref() {
             futures.push(Box::pin(async {
                 let sample_count = cfg.sample_count;
                 let cfg = &cfg.intel_gpu_top;
 
                 let mut avgs = vec![Avg::new(); cfg.values.len()];
-                for _ in 0..sample_count {
-                    intel_gpu_top_ticker.tick().await;
-                    sample_intel_gpu_top(cfg, &mut avgs).await;
+
+                // wait for enough samples from intel_gpu_top output
+                for i in 0..sample_count {
+                    let val = job.rx.recv().await.unwrap();
+                    log::info!("received intel_gpu_top sample {}", i);
+                    let pairs = cfg.values.iter().zip(avgs.iter_mut());
+                    pairs.for_each(|(map, avg)| {
+                        avg.add(map.path.get_f64(&val).unwrap());
+                    });
                 }
 
                 let mut point = DataPoint::builder("intel_gpu_top");
@@ -205,6 +196,7 @@ async fn main() {
                     point = point.field(name.clone(), avg.eval());
                 }
 
+                log::info!("built intel_gpu_top point");
                 point.build().unwrap()
             }));
         }
@@ -213,5 +205,6 @@ async fn main() {
         if let Some(influx) = influx.as_ref() {
             influx.write_points(results).await.unwrap();
         }
+        log::info!("wrote points to database");
     }
 }
