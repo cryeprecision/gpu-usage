@@ -122,7 +122,7 @@ async fn main() {
 
     let intel_gpu_top = cfg.intel_gpu_top.enabled.then(|| {
         let (tx, rx) = async_channel::unbounded();
-        let handle = tokio::spawn(bins::intel_gpu_top(
+        let handle = tokio::spawn(bins::intel_gpu_top_log(
             tx,
             cfg.sample_interval_ms,
             cfg.intel_gpu_top.device.clone(),

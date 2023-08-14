@@ -8,6 +8,16 @@ use tokio::io::AsyncReadExt;
 const BIN: &str = "intel_gpu_top";
 const BUFFER_LEN: usize = 4096;
 
+pub async fn intel_gpu_top_log(tx: Sender<Value>, interval_ms: u64, device: String) -> Result<()> {
+    match intel_gpu_top(tx, interval_ms, device).await {
+        Err(err) => {
+            log::error!("intel_gpu_top: {}", err);
+            Err(err)
+        }
+        Ok(v) => Ok(v),
+    }
+}
+
 /// Spawn the `intel_gpu_top` command and collect the JSON output
 pub async fn intel_gpu_top(tx: Sender<Value>, interval_ms: u64, device: String) -> Result<()> {
     let interval_str = interval_ms.to_string();
