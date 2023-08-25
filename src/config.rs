@@ -97,7 +97,7 @@ impl Conf {
         let path = path.to_string();
         tokio::task::spawn_blocking(move || inner(&path))
             .await
-            .unwrap()
+            .context("inner config load function paniced")?
     }
 
     /// Check for invalid configuration.

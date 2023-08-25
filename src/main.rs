@@ -2,6 +2,7 @@ mod bins;
 mod config;
 mod influx;
 mod json_ptr;
+mod logger;
 
 use std::pin::Pin;
 
@@ -27,24 +28,6 @@ struct Opt {
     #[structopt(long)]
     #[structopt(default_value = "./config.json")]
     config: String,
-}
-
-fn init_logger() {
-    use log::LevelFilter;
-    use simplelog::{ColorChoice, ConfigBuilder, TermLogger, TerminalMode};
-
-    TermLogger::init(
-        LevelFilter::Info,
-        ConfigBuilder::default()
-            .set_time_format_rfc2822()
-            .set_target_level(LevelFilter::Info)
-            .set_time_offset_to_local()
-            .unwrap()
-            .build(),
-        TerminalMode::Mixed,
-        ColorChoice::Auto,
-    )
-    .unwrap();
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -128,7 +111,10 @@ fn _build_point(measurement: &str, tags: &[Tag], values: &[ValueMapping], avgs: 
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    init_logger();
+    if let Err(err) = logger::init_logger() {
+        log::error!("couldn't init logger: {}", err);
+        std::process::exit(1);
+    }
 
     // Parse command line arguments
     let opts = Opt::from_args();
@@ -167,6 +153,8 @@ async fn main() {
         BackgroundJob::spawn(bins::sensors(tx, cfg.sample_interval_ms), rx)
     });
 
+    // Spawn a future for each 'job', the jobs each sample with their own interval.
+    // After all jobs have finished, the resulting points will be pushed to the db.
     loop {
         // Boxed future that returns a data point over sampled values
         type BoxFuture = Pin<Box<dyn Future<Output = DataPoint>>>;
@@ -245,8 +233,10 @@ async fn main() {
         // Wait for all the jobs to collect enough samples
         let results = futures::future::join_all(futures).await;
         if let Some(influx) = influx.as_ref() {
-            influx.write_points(results).await.unwrap();
-            log::info!("wrote points to database");
+            match influx.write_points(results).await {
+                Ok(_) => log::info!("wrote points to database"),
+                Err(err) => log::warn!("couldn't write point to db: {}", err),
+            }
         }
     }
 }

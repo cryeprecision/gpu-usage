@@ -19,8 +19,8 @@ pub async fn intel_gpu_top(tx: Sender<Value>, interval_ms: u64, device: String) 
 }
 
 fn trim_json_object(buffer: &[u8]) -> Option<&[u8]> {
-    const OPEN: u8 = '{' as u8;
-    const CLOSE: u8 = '}' as u8;
+    const OPEN: u8 = b'{';
+    const CLOSE: u8 = b'}';
 
     let start = buffer.iter().position(|&b| b == OPEN)?;
     let end = buffer.len() - buffer.iter().rev().position(|&b| b == CLOSE)?;
