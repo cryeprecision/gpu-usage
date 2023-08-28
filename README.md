@@ -3,6 +3,8 @@
 The [`intel_gpu_top`](https://manpages.debian.org/bookworm/intel-gpu-tools/intel_gpu_top.1.en.html) command from the [intel-gpu-tools](https://manpages.debian.org/bookworm/intel-gpu-tools/index.html) package doesn't terminate.
 To fix that, this program spawns the `intel_gpu_top` command as a child, parses its output until a complete JSON object is found, prints it to stdout, and terminates.
 
+Also uses the [`sensors`](https://packages.debian.org/de/sid/lm-sensors) package.
+
 ## Proxmox
 
 If you want to display the GPU usage in Proxmox, do the following
