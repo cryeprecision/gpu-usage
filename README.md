@@ -5,6 +5,12 @@ To fix that, this program spawns the `intel_gpu_top` command as a child, parses 
 
 Also uses the [`sensors`](https://packages.debian.org/de/sid/lm-sensors) package.
 
+## Binaries
+
+- [`intel-gpu-tools`](https://packages.debian.org/source/stable/intel-gpu-tools)
+- [`sensors`](https://packages.debian.org/source/stable/lm-sensors)
+- [`inxi`](https://packages.debian.org/source/stable/inxi)
+
 ## Proxmox
 
 If you want to display the GPU usage in Proxmox, do the following
