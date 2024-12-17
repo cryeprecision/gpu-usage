@@ -1,5 +1,6 @@
 use anyhow::Result;
-use influxdb2::{models::DataPoint, Client};
+use influxdb2::{models::DataPoint, Client, ClientBuilder};
+use reqwest::tls::Version;
 
 pub struct Influx {
     client: Client,
@@ -8,8 +9,14 @@ pub struct Influx {
 
 impl Influx {
     pub fn new(host: &str, org: &str, token: &str, bucket: &str) -> Influx {
+        let reqwest = reqwest::Client::builder()
+            .min_tls_version(Version::TLS_1_2)
+            .danger_accept_invalid_certs(true);
+
         Influx {
-            client: Client::new(host, org, token),
+            client: ClientBuilder::with_builder(reqwest, host, org, token)
+                .build()
+                .expect("valid influx client"),
             bucket: bucket.to_string(),
         }
     }

@@ -7,16 +7,23 @@ edition = "2021"
 
 [dependencies]
 structopt = { version = "0.3" }
-tokio = { version = "1.30", features = ["rt", "macros", "time", "process", "net"] }
+tokio = { version = "1.30", features = [
+    "rt",
+    "macros",
+    "time",
+    "process",
+    "net",
+] }
 chrono = { version = "0.4" }
 simplelog = { version = "0.12" }
 log = { version = "0.4", features = ["release_max_level_warn"] }
 futures = { version = "0.3", default-features = false, features = ["std"] }
 anyhow = { version = "1.0" }
 serde_json = { version = "1.0" }
-influxdb2 = { version = "0.4", default-features = false }
+influxdb2 = { version = "0.5", default-features = false, features = ["rustls"] }
+reqwest = { version = "*" }
 serde = { version = "1.0", features = ["derive"] }
-async-channel = { version = "1.9" }
+async-channel = { version = "2.3" }
 
 [profile.release]
 strip = true
